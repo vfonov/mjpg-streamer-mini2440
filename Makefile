@@ -66,7 +66,11 @@ $(APP_BINARY): mjpg_streamer.c mjpg_streamer.h mjpg_streamer.o utils.c utils.h u
 	$(CC) $(CFLAGS) $(LFLAGS) $(OBJECTS) -o $(APP_BINARY)
 	chmod 755 $(APP_BINARY)
 
-# useful to make a backup "make tgz"
-tgz: clean
-	mkdir -p backups
-	tar czvf ./backups/mjpg_streamer_`date +"%Y_%m_%d_%H.%M.%S"`.tgz --exclude backups *
+package: application plugins
+	tar czvf mjpg-streamer-mini2440-bin.tar.gz --exclude www/.svn \
+  mjpg_streamer \
+  input_s3c2410.so input_testpicture.so input_uvc.so \
+  output_file.so output_http.so \
+  start_s3c2410.sh start_uvc.sh \
+  www
+  
