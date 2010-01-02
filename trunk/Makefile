@@ -72,5 +72,7 @@ package: application plugins
   input_s3c2410.so input_testpicture.so input_uvc.so \
   output_file.so output_http.so \
   start_s3c2410.sh start_uvc.sh \
-  www
+  www \
+  LICENSE
+  
   
