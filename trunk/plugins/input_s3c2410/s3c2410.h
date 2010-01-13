@@ -47,9 +47,9 @@
 #include <pthread.h>
 
 /* in case default setting */
-#define WIDTH 640
-#define HEIGHT 512
-#define BPPIN 16
+#define WIDTH 1280
+#define HEIGHT 1024
+#define BPPIN 8
 #define OUTFRMNUMB 4
 
 

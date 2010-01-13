@@ -60,6 +60,7 @@ int init_videoIn(struct vdIn *vd, char *device, int width, int height, int fps, 
   }
   /* alloc a temp buffer to reconstruct the pict */
   vd->framesizeIn = (vd->width * vd->height << 1);
+	
   switch (vd->formatIn) {
   case V4L2_PIX_FMT_MJPEG:
     vd->tmpbuffer = (unsigned char *) calloc(1, (size_t) vd->framesizeIn);
@@ -127,12 +128,15 @@ static int init_v4l2(struct vdIn *vd)
    * set format in
    */
   memset(&vd->fmt, 0, sizeof(struct v4l2_format));
+	
   vd->fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   vd->fmt.fmt.pix.width = vd->width;
   vd->fmt.fmt.pix.height = vd->height;
   vd->fmt.fmt.pix.pixelformat = vd->formatIn;
   vd->fmt.fmt.pix.field = V4L2_FIELD_ANY;
+	
   ret = ioctl(vd->fd, VIDIOC_S_FMT, &vd->fmt);
+	
   if (ret < 0) {
     perror("Unable to set format");
     goto fatal;
@@ -148,6 +152,14 @@ static int init_v4l2(struct vdIn *vd)
      */
     // vd->formatIn = vd->fmt.fmt.pix.pixelformat;
   }
+	
+	if(vd->fmt.fmt.pix.pixelformat != vd->formatIn)
+	{
+		char fmt_string[5]={0,0,0,0,0};
+		memmove(fmt_string,&vd->fmt.fmt.pix.pixelformat,4);
+		fprintf(stderr, " Pixel format is unavailable, using %s \n",fmt_string );
+		vd->formatIn = vd->fmt.fmt.pix.pixelformat;
+	}
 
   /*
    * set framerate
@@ -159,7 +171,6 @@ static int init_v4l2(struct vdIn *vd)
   setfps->parm.capture.timeperframe.numerator = 1;
   setfps->parm.capture.timeperframe.denominator = vd->fps;
   ret = ioctl(vd->fd, VIDIOC_S_PARM, setfps);
-
   /*
    * request buffers
    */
@@ -338,16 +349,17 @@ int uvcGrab(struct vdIn *vd)
         fprintf(stderr, "bytes in used %d \n", vd->buf.bytesused);
       break;
 
-    case V4L2_PIX_FMT_YUYV:
+    //case V4L2_PIX_FMT_YUYV:
+		default:
       if (vd->buf.bytesused > vd->framesizeIn)
         memcpy (vd->framebuffer, vd->mem[vd->buf.index], (size_t) vd->framesizeIn);
       else
         memcpy (vd->framebuffer, vd->mem[vd->buf.index], (size_t) vd->buf.bytesused);
       break;
 
-    default:
+    /*default:
       goto err;
-    break;
+    break;*/
   }
 
   ret = ioctl(vd->fd, VIDIOC_QBUF, &vd->buf);

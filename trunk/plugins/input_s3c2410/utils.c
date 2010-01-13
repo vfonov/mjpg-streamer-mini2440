@@ -35,11 +35,7 @@
 #include <time.h>
 #include <limits.h>
 
-
-#include "jdatatype.h"
-#include "encoder.h"
 #include <linux/videodev.h>
-#include "jconfig.h"
 
 
 double ms_time (void);

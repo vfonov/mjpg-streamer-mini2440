@@ -27,7 +27,7 @@
 export LD_LIBRARY_PATH="$(pwd)"
 #./mjpg_streamer -o "output_http.so -w ./www" -i "input_s3c2410.so"
 
-./mjpg_streamer -o "output_http.so -w ./www" -i "input_uvc.so "
+./mjpg_streamer -o "output_http.so -w ./www" -i "input_uvc.so -y"
 
 ## pwd echos the current path you are working at,
 ## the backticks open a subshell to execute the command pwd first

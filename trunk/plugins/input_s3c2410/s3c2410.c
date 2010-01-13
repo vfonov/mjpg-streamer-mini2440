@@ -29,6 +29,7 @@
 #include <syslog.h>
 #include <getopt.h>
 #include <pthread.h>
+#include <sched.h>
 
 #include "../../utils.h"
 #include "../../mjpg_streamer.h"
@@ -36,8 +37,7 @@
 
 #include "s3c2410.h"
 #include "utils.h"
-#include "jdatatype.h"
-#include "encoder.h"
+#include "../../simplified_jpeg_encoder.h"
 
 /****************************************************************************
 *			Public
@@ -56,11 +56,14 @@ int init_s3c2410 (struct vdIn *vd, char *device,
     return -1;
 
   vd->videodevice=strdup(device);
-  vd->framesizeIn=(width*height*BPPIN)>>3; 
+  
+  vd->framesizeIn=width*height*2;  //RGB565 
+  
   vd->hdrwidth=width;
   vd->hdrheight=height;
-  
-  vd->pFramebuffer=(unsigned char *) malloc ((size_t) vd->framesizeIn );
+  //printf("Allocating frame:%dx%d\n",width,height);
+	
+  vd->pFramebuffer=(unsigned char *) malloc ((size_t) vd->framesizeIn ); //just in case
   
   vd->formatIn=0;
 
@@ -75,14 +78,14 @@ int init_s3c2410 (struct vdIn *vd, char *device,
   for (i = 0; i < OUTFRMNUMB; i++)
   {
       vd->ptframe[i] = NULL;
-      vd->ptframe[i] = (unsigned char *) malloc ((size_t) vd->framesizeIn );
+      vd->ptframe[i] = (unsigned char *) malloc ((size_t) vd->framesizeIn+sizeof(struct frame_t) );
       vd->framelock[i] = 0;
   }
 
   vd->frame_cour = 0;
   
   pthread_mutex_init (&vd->grabmutex, NULL);
-  
+  printf("Allocated\n");
   return 0;
 }
 
@@ -117,9 +120,10 @@ int close_s3c2410 (struct vdIn *vd)
 }
 
 int convertframe(unsigned char *dst,unsigned char *src, 
-		 int width,int height, int formatIn, int qualite)
+		 int width,int height, int formatIn, int qualite,int buf_size)
 { 
-   return  encode_image(src,dst,qualite,RGB565to420,width,height);	
+	 RGB565_2_CrCb420(src,src,width,height); //inplace conversion
+	 return  s_encode_image(src,dst,qualite,FORMAT_CbCr420,width,height,buf_size); 
 }
 
 int s3c2410_Grab (struct vdIn *vd )
@@ -140,13 +144,20 @@ int s3c2410_Grab (struct vdIn *vd )
 
 /* read method */
   size = vd->framesizeIn;
-  len = read (vd->fd, vd->pFramebuffer, size);
   
-  if (len <= 0 )
+  do
   {
-      printf ("2410 read error\n");
-      printf ("len %d asked %d \n", len, size);
-      return 0;
+    len = read (vd->fd, vd->pFramebuffer, size);
+    
+    if(!len ) //not yet ready
+      sched_yield();
+    
+  } while(!len);
+  
+  if(len<0) 
+  {
+        printf ("2440 read error\n");
+        return -1;
   }
   /* Is there someone using the frame */
     while((vd->framelock[vd->frame_cour] != 0)&& vd->signalquit)
@@ -158,29 +169,29 @@ int s3c2410_Grab (struct vdIn *vd )
     jpegsize =jpeg_compress(vd->ptframe[vd->frame_cour]+ sizeof(struct frame_t),len,
     vd->pFramebuffer, vd->hdrwidth, vd->hdrheight, qualite); 
     */
-    temps = ms_time();
+  temps = ms_time();
+  jpegsize= convertframe(vd->ptframe[vd->frame_cour]+ sizeof(struct frame_t),
+    vd->pFramebuffer,
+    vd->hdrwidth, vd->hdrheight,
+    vd->formatIn,  qualite, vd->framesizeIn); 
+		
     
-    jpegsize= convertframe(vd->ptframe[vd->frame_cour]+ sizeof(struct frame_t),
-		  vd->pFramebuffer,
-		  vd->hdrwidth, vd->hdrheight,
-	          vd->formatIn,  qualite); 
-		  
-    headerframe=(struct frame_t*)vd->ptframe[vd->frame_cour];
-    
-    snprintf(headerframe->header,5,"%s","2410"); 
-    
-    headerframe->seqtimes = ms_time();
-    headerframe->deltatimes=(int)(headerframe->seqtimes-timecourant); 
-    headerframe->w = vd->hdrwidth;
-    headerframe->h = vd->hdrheight;
-    headerframe->size = (( jpegsize < 0)?0:jpegsize);; 
-    headerframe->format = vd->formatIn; 
-    headerframe->nbframe = frame++; 
+  headerframe=(struct frame_t*)vd->ptframe[vd->frame_cour];
+  
+  snprintf(headerframe->header,5,"%s","2410"); 
+  
+  headerframe->seqtimes = ms_time();
+  headerframe->deltatimes=(int)(headerframe->seqtimes-timecourant); 
+  headerframe->w = vd->hdrwidth;
+  headerframe->h = vd->hdrheight;
+  headerframe->size = (( jpegsize < 0)?0:jpegsize);; 
+  headerframe->format = vd->formatIn; 
+  headerframe->nbframe = frame++; 
     
   DBG("compress frame %d times %f\n",frame, headerframe->seqtimes-temps);
   vd->frame_cour = (vd->frame_cour +1) % OUTFRMNUMB;  
   pthread_mutex_unlock (&vd->grabmutex); 
   /************************************/
      
-  return err;
+  return jpegsize;
 }

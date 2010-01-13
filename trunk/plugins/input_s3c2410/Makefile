@@ -7,7 +7,8 @@
 #
 ###############################################################
 
-CC = arm-linux-gcc
+CC ?= gcc
+
 
 OTHER_HEADERS = ../../mjpg_streamer.h ../../utils.h ../output.h ../input.h
 
@@ -20,8 +21,8 @@ all: input_s3c2410.so
 clean:
 	rm -f *.a *.o core *~ *.so *.lo
 
-input_s3c2410.so: $(OTHER_HEADERS) input_s3c2410.c s3c2410.lo utils.lo encoder.lo huffman.lo marker.lo quant.lo
-	$(CC) $(CFLAGS) -o $@ input_s3c2410.c s3c2410.lo utils.lo encoder.lo huffman.lo marker.lo quant.lo
+input_s3c2410.so: $(OTHER_HEADERS) input_s3c2410.c s3c2410.lo utils.lo simplified_jpeg_encoder.lo
+	$(CC) $(CFLAGS) -o $@ input_s3c2410.c s3c2410.lo utils.lo simplified_jpeg_encoder.lo
 
 s3c2410.lo:	s3c2410.c s3c2410.h
 	$(CC) -c $(CFLAGS) -o $@ $<
@@ -29,14 +30,6 @@ s3c2410.lo:	s3c2410.c s3c2410.h
 utils.lo:	utils.c utils.h
 	$(CC) -c $(CFLAGS) -o $@ $<
 
-encoder.lo:	encoder.c encoder.h
+simplified_jpeg_encoder.lo:	../../simplified_jpeg_encoder.c ../../simplified_jpeg_encoder.h
 	$(CC) -c $(CFLAGS) -o $@ $<
 
-huffman.lo:	huffman.c huffman.h
-	$(CC) -c $(CFLAGS) -o $@ $<
-
-marker.lo:	marker.c marker.h
-	$(CC) -c $(CFLAGS) -o $@ $<
-
-quant.lo:	quant.c quant.h
-	$(CC) -c $(CFLAGS) -o $@ $<
