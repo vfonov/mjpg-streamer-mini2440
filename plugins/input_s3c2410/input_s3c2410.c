@@ -160,7 +160,7 @@ void *cam_thread( void *arg )
   int iframe = 0;
   unsigned char *pictureData = NULL;
   struct frame_t *headerframe;
-
+  int r;
   /* set cleanup handler to cleanup allocated ressources */
   pthread_cleanup_push(cam_cleanup, NULL);
 
@@ -168,10 +168,16 @@ void *cam_thread( void *arg )
   {
     
     /* grab a frame */
-    
-    if( s3c2410_Grab( videoIn ) < 0 ) {
+    r=s3c2410_Grab( videoIn );
+    if( r < 0 ) {
       IPRINT("Error grabbing frames\n");
       exit(EXIT_FAILURE);
+    }
+    if(!r) //not captured
+    {
+      //sleep(0);
+      pthread_yield();
+      continue;
     }
 
     iframe=(videoIn->frame_cour +(OUTFRMNUMB-1))% OUTFRMNUMB;

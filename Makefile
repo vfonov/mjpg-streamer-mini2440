@@ -7,7 +7,8 @@
 #
 ###############################################################
 
-CC = arm-linux-gcc
+#CC = arm-linux-gcc
+CC ?= gcc
 
 CFLAGS += -O3 -DLINUX -D_GNU_SOURCE -Wall 
 #CFLAGS += -O2 -DDEBUG -DLINUX -D_GNU_SOURCE -Wall
@@ -26,7 +27,7 @@ clean:
 	make -C plugins/output_autofocus $@
 	make -C plugins/input_gspcav1 $@
 	make -C plugins/input_s3c2410 $@
-	rm -f *.a *.o $(APP_BINARY) core *~ *.so *.lo
+	rm -f *.a *.o $(APP_BINARY) core *~ *.so *.lo test_jpeg
 
 plugins: input_s3c2410.so input_uvc.so output_file.so output_http.so  input_testpicture.so
 
@@ -35,31 +36,31 @@ plugins: input_s3c2410.so input_uvc.so output_file.so output_http.so  input_test
 application: $(APP_BINARY)
 
 output_autofocus.so: mjpg_streamer.h utils.h
-	make -C plugins/output_autofocus all
+	make -C plugins/output_autofocus all CC=$(CC)
 	cp plugins/output_autofocus/output_autofocus.so .
 
 input_testpicture.so: mjpg_streamer.h utils.h
-	make -C plugins/input_testpicture all
+	make -C plugins/input_testpicture all CC=$(CC)
 	cp plugins/input_testpicture/input_testpicture.so .
 
 input_uvc.so: mjpg_streamer.h utils.h
-	make -C plugins/input_uvc all
+	make -C plugins/input_uvc all CC=$(CC)
 	cp plugins/input_uvc/input_uvc.so .
 
 output_file.so: mjpg_streamer.h utils.h
-	make -C plugins/output_file all
+	make -C plugins/output_file all CC=$(CC)
 	cp plugins/output_file/output_file.so .
 
 output_http.so: mjpg_streamer.h utils.h
-	make -C plugins/output_http all
+	make -C plugins/output_http all CC=$(CC)
 	cp plugins/output_http/output_http.so .
 
 input_gspcav1.so: mjpg_streamer.h utils.h
-	make -C plugins/input_gspcav1 all
+	make -C plugins/input_gspcav1 all CC=$(CC)
 	cp plugins/input_gspcav1/input_gspcav1.so .
 
 input_s3c2410.so: mjpg_streamer.h utils.h
-	make -C plugins/input_s3c2410 all
+	make -C plugins/input_s3c2410 all CC=$(CC)
 	cp plugins/input_s3c2410/input_s3c2410.so .
 
 $(APP_BINARY): mjpg_streamer.c mjpg_streamer.h mjpg_streamer.o utils.c utils.h utils.o
@@ -71,8 +72,10 @@ package: application plugins
   mjpg_streamer \
   input_s3c2410.so input_testpicture.so input_uvc.so \
   output_file.so output_http.so \
-  start_s3c2410.sh start_uvc.sh \
+  start_s3c2410.sh start_uvc.sh start_uvc_yuv.sh \
   www \
   LICENSE
   
+test_jpeg: test_jpeg.c simplified_jpeg_encoder.c simplified_jpeg_encoder.h
+	gcc -O0 -g simplified_jpeg_encoder.c test_jpeg.c  -o test_jpeg
   
