@@ -102,22 +102,22 @@ uint32_t s_encode_image(uint8_t * input_ptr, uint8_t * output_ptr,
                         uint32_t image_width, uint32_t image_height,
                         uint32_t output_buffer_size);
 												
-void RGB24_2_CrCb444(uint8_t * input_ptr, uint8_t * output_ptr,
+void RGB24_2_YCbCr444(uint8_t * input_ptr, uint8_t * output_ptr,
                       uint32_t image_width, uint32_t image_height);
 											
-void RGB24_2_CrCb422(uint8_t * input_ptr, uint8_t * output_ptr,
+void RGB24_2_YCbCr422(uint8_t * input_ptr, uint8_t * output_ptr,
                       uint32_t image_width, uint32_t image_height);
 											
-void RGB24_2_CrCb420(uint8_t * input_ptr, uint8_t * output_ptr,
+void RGB24_2_YCbCr420(uint8_t * input_ptr, uint8_t * output_ptr,
                       uint32_t image_width, uint32_t image_height);
 											
-void RGB24_2_CrCb400(uint8_t * input_ptr, uint8_t * output_ptr,
+void RGB24_2_YCbCr400(uint8_t * input_ptr, uint8_t * output_ptr,
                       uint32_t image_width, uint32_t image_height);
 											
-void RGB565_2_CrCb420(uint8_t * input_ptr, uint8_t * output_ptr,
+void RGB565_2_YCbCr420(uint8_t * input_ptr, uint8_t * output_ptr,
                          uint32_t image_width, uint32_t image_height);
 												 
-void RGB32_2_CrCb420(uint8_t * input_ptr, uint8_t * output_ptr,
+void RGB32_2_YCbCr420(uint8_t * input_ptr, uint8_t * output_ptr,
                         uint32_t image_width, uint32_t image_height);
 												
 #endif // __SIMPLIFIED_JPEG_ENCODER_H__

@@ -122,8 +122,14 @@ int close_s3c2410 (struct vdIn *vd)
 int convertframe(unsigned char *dst,unsigned char *src, 
 		 int width,int height, int formatIn, int qualite,int buf_size)
 { 
-	 RGB565_2_CrCb420(src,src,width,height); //inplace conversion
-	 return  s_encode_image(src,dst,qualite,FORMAT_CbCr420,width,height,buf_size); 
+	 int ret=0;
+	 //unsigned char *tmp=malloc(width*height*2);
+	 
+	 RGB565_2_YCbCr420(src,src,width,height); //inplace conversion
+	 
+	 ret=s_encode_image(src,dst,qualite,FORMAT_CbCr420,width,height,buf_size);
+	 //free(tmp);
+	 return ret;
 }
 
 int s3c2410_Grab (struct vdIn *vd )
