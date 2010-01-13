@@ -54,19 +54,19 @@ int compress_yuyv_to_jpeg(struct vdIn *vd, unsigned char *buffer, int size, int 
 			
 		case V4L2_PIX_FMT_RGB565:
 			//do inplace conversion
-			RGB565_2_CrCb420(vd->framebuffer,vd->framebuffer,vd->width,vd->height);
+			RGB565_2_YCbCr420(vd->framebuffer,vd->framebuffer,vd->width,vd->height);
 			written=s_encode_image(vd->framebuffer,buffer,1024,FORMAT_CbCr422,vd->width,vd->height,vd->framesizeIn);
 			break;
 			
 		case V4L2_PIX_FMT_RGB24:
 			//do inplace conversion
-			RGB24_2_CrCb422(vd->framebuffer,vd->framebuffer,vd->width,vd->height);
+			RGB24_2_YCbCr422(vd->framebuffer,vd->framebuffer,vd->width,vd->height);
 			written=s_encode_image(vd->framebuffer,buffer,1024,FORMAT_CbCr422,vd->width,vd->height,vd->framesizeIn);
 			break;
 			
 		case V4L2_PIX_FMT_RGB32:
 			//do inplace conversion
-			RGB32_2_CrCb420(vd->framebuffer,vd->framebuffer,vd->width,vd->height);
+			RGB32_2_YCbCr420(vd->framebuffer,vd->framebuffer,vd->width,vd->height);
 			written=s_encode_image(vd->framebuffer,buffer,1024,FORMAT_CbCr420,vd->width,vd->height,vd->framesizeIn);
 			break;
 			

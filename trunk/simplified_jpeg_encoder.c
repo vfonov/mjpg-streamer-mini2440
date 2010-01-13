@@ -441,7 +441,7 @@ static void initialization(S_JPEG_ENCODER_STRUCTURE * jpeg,
     jpeg->mcu_line_offset = (S_UINT)((image_width * ((mcu_height >> 1) - 1) -
                    (mcu_width - jpeg->cols_in_right_mcus)) * bytes_per_pixel);
 									 
-		jpeg->mcu_height_size =  (S_UINT)(mcu_width * mcu_height/2 * bytes_per_pixel);
+		jpeg->mcu_height_size =  (S_UINT)(image_width * mcu_height/2 * bytes_per_pixel);
 	}
 	else
 	{
@@ -451,6 +451,7 @@ static void initialization(S_JPEG_ENCODER_STRUCTURE * jpeg,
 		jpeg->mcu_height_size =  (S_UINT)(image_width * mcu_height * bytes_per_pixel);
 		
 	}
+	//printf("mcu_height_size=%d,mcu_width_size=%d\n",jpeg->mcu_height_size,jpeg->mcu_width_size);
 
   jpeg->ldc1 = 0;
 
@@ -671,7 +672,8 @@ static void read_YCbCr400(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
 
 static void read_YCbCr420(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S_UINT row,S_UINT col)
 {
-	uint8_t * input_ptr=input_ptr_+row*enc->mcu_height_size+col*enc->mcu_width_size;
+	uint8_t * input_ptr=input_ptr_+ row*enc->mcu_height_size + col*enc->mcu_width_size;
+	//printf("read_YCbCr420: %p \n",input_ptr);
   S_UINT i, j;
   S_UINT Y1_rows, Y3_rows, Y1_cols, Y2_cols;
   S_INT * Y1_Ptr = enc->Y1;
@@ -694,7 +696,7 @@ static void read_YCbCr420(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
     Y3_rows = 0;
   } else {
     Y1_rows = 8;
-    Y3_rows = (uint16_t)(rows - 8);
+    Y3_rows = (S_UINT)(rows - 8);
   }
 
   if (cols <= 8)
@@ -703,7 +705,7 @@ static void read_YCbCr420(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
     Y2_cols = 0;
   } else {
     Y1_cols = 8;
-    Y2_cols = (uint16_t)(cols - 8);
+    Y2_cols = (S_UINT)(cols - 8);
   }
 
   for (i = Y1_rows >> 1; i > 0; i--)
@@ -1292,7 +1294,8 @@ static void read_YCbCr444(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
 #define CLIP(color) (unsigned char)(((color)>0xff)?0xff:(((color)<0)?0:(color)))
 
 /* translate RGB24 to YUV444 in input */
-void RGB24_2_CrCb444(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
+void RGB24_2_YCbCr444
+(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
           uint32_t image_height)
 {
   uint32_t i, size;
@@ -1318,7 +1321,8 @@ void RGB24_2_CrCb444(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_w
 
 
 /* translate RGB24 to YUV422 in input */
-void RGB24_2_CrCb422(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
+void RGB24_2_YCbCr422
+(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
           uint32_t image_height)
 {
   uint32_t i, size;
@@ -1349,7 +1353,7 @@ void RGB24_2_CrCb422(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_w
 
 
 /* translate RGB24 to YUV420 in input */
-void RGB24_2_CrCb420(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
+void RGB24_2_YCbCr420(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
           uint32_t image_height)
 {
   uint32_t i, j;
@@ -1403,7 +1407,7 @@ void RGB24_2_CrCb420(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_w
 
 
 /* translate RGB32 to YUV420 in input */
-void RGB32_2_CrCb420(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
+void RGB32_2_YCbCr420(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
             uint32_t image_height)
 {
   uint32_t i, j, size;
@@ -1456,7 +1460,7 @@ void RGB32_2_CrCb420(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_w
 
 
 /* translate RGB565 to YUV420 in input */
-void RGB565_2_CrCb420(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
+void RGB565_2_YCbCr420(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
              uint32_t image_height)
 {
   uint32_t i, j, size;
@@ -1508,7 +1512,7 @@ void RGB565_2_CrCb420(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_
   }
 }
 
-void RGB24_2_CrCb400(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
+void RGB24_2_YCbCr400(uint8_t * input_ptr, uint8_t * output_ptr, uint32_t image_width,
           uint32_t image_height)
 {
   uint32_t i, size;
