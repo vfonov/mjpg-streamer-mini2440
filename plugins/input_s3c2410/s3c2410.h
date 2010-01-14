@@ -27,6 +27,7 @@
 #ifndef S3C2410_H
 #define S3C2410_H 
 
+#include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -37,8 +38,8 @@
 #include <time.h>
 #include <math.h>
 #include <stdarg.h>
-//#include <linux/types.h>
-//#include <linux/videodev.h>
+#include <linux/types.h>
+#include <linux/videodev2.h>
 //#include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/file.h>
@@ -84,6 +85,11 @@ struct vdIn {
 	int  hdrheight;
 	int  formatIn;
 	int  signalquit;	
+	struct v4l2_capability cap;
+	struct v4l2_format fmt;
+  int  grayscale;
+	uint32_t quality;
+	
 	};
 	
 int init_s3c2410  (struct vdIn *vd,char *device,int width,int height);

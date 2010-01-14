@@ -59,8 +59,100 @@ Return Value: 0 if everything is fine
               should stop running and leave.
 ******************************************************************************/
 int input_init(input_parameter *param) {
-  char  *dev = "/dev/camera", *s;
+  char  *dev = "/dev/video0", *s;
   int width=640, height=512,  i;
+	int argc=1;
+	char *argv[MAX_ARGUMENTS]={NULL};
+	uint32_t jpg_quality=1024;
+	int grayscale=0;
+	
+  /* convert the single parameter-string to an array of strings */
+  argv[0] = INPUT_PLUGIN_NAME;
+  if ( param->parameter_string != NULL && strlen(param->parameter_string) != 0 ) {
+    char *arg=NULL, *saveptr=NULL, *token=NULL;
+
+    arg=(char *)strdup(param->parameter_string);
+
+    if ( strchr(arg, ' ') != NULL ) {
+      token=strtok_r(arg, " ", &saveptr);
+      if ( token != NULL ) {
+        argv[argc] = strdup(token);
+        argc++;
+        while ( (token=strtok_r(NULL, " ", &saveptr)) != NULL ) {
+          argv[argc] = strdup(token);
+          argc++;
+          if (argc >= MAX_ARGUMENTS) {
+            IPRINT("ERROR: too many arguments to input plugin\n");
+            return 1;
+          }
+        }
+      }
+    }
+  }
+
+  /* show all parameters for DBG purposes */
+  for (i=0; i<argc; i++) {
+    DBG("argv[%d]=%s\n", i, argv[i]);
+  }
+
+  /* parse the parameters */
+  reset_getopt();
+	
+  while(1) {
+    int option_index = 0, c=0;
+		
+    struct option long_options[] = \
+    {
+      {"help", no_argument, 0, 'h'},
+      {"device", required_argument, 0, 'd'},
+      {"resolution", required_argument, 0, 'r'},
+      {"quality", required_argument, 0, 'q'},
+			{"grayscale", no_argument, 0, 'g'},
+      {0, 0, 0, 0}
+    };
+
+		c = getopt_long(argc, argv, "hd:r:q:g", long_options, &option_index);
+		
+    /* no more options to parse */
+    if (c == -1) break;
+
+    /* dispatch the given options */
+    switch (c) {
+
+      /* d, device */
+      case 'd':
+        DBG("case d\n");
+        dev = strdup(optarg);
+        break;
+			case 'g':
+				grayscale=1;
+				break;
+      /* r, resolution */
+      case 'r':
+        DBG("case r\n");
+        width = -1;
+        height = -1;
+
+        /* parse value as decimal value */
+        width  = strtol(optarg, &s, 10);
+        height = strtol(s+1, NULL, 10);
+        break;
+
+      /* q, quality */
+      case 'q':
+        DBG("case q\n");
+        jpg_quality = atoi(optarg);
+        break;
+
+      /* h, help */
+      case 'h':
+      default:
+        DBG("default case, h\n");
+        help();
+        return 1;
+    }
+  }
+
 
   /* keep a pointer to the global variables */
   pglobal = param->global;
@@ -75,7 +167,12 @@ int input_init(input_parameter *param) {
   
   memset(videoIn, 0, sizeof(struct vdIn));
   DBG("initializing s3c2410 device\n");
-  
+  /* display the parsed values */
+  IPRINT("Using V4L2 device.: %s\n", dev);
+  IPRINT("Desired Resolution: %i x %i\n", width, height);
+  IPRINT("Grayscale mode: %s\n",grayscale?"on":"off");
+	videoIn->grayscale=grayscale;
+	videoIn->quality=jpg_quality;
   /* open video device and prepare data structure */
   if (init_s3c2410 (videoIn, dev, width, height) != 0) 
   {
@@ -146,7 +243,10 @@ void help(void) {
   fprintf(stderr, " ---------------------------------------------------------------\n" \
                   " Help for input plugin..: "INPUT_PLUGIN_NAME"\n" \
                   " ---------------------------------------------------------------\n" \
-                  "                          ");
+                  " The following parameters can be passed to this plugin:\n\n" \
+                  " [-d | --device ].......: video device to open (your camera)\n" \
+                  " [-r | --resolution XxY ]...: the resolution of the video device,\n" \
+                  " [-g | --grayscale ]......: encode grayscale images (discard color information)\n");
   fprintf(stderr, " ---------------------------------------------------------------\n\n");
 }
 
