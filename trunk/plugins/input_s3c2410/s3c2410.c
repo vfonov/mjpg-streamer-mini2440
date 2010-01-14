@@ -54,23 +54,65 @@ int init_s3c2410 (struct vdIn *vd, char *device,
 
   if (width == 0 || height == 0)
     return -1;
-
-  vd->videodevice=strdup(device);
-  
-  vd->framesizeIn=width*height*2;  //RGB565 
-  
-  vd->hdrwidth=width;
-  vd->hdrheight=height;
-  //printf("Allocating frame:%dx%d\n",width,height);
+	vd->hdrwidth=width;
+	vd->hdrheight=height;
 	
+  vd->videodevice=strdup(device);
+  DBG("Opening device\n");
+  if ((vd->fd = open( vd->videodevice, O_RDWR)) == -1)
+    exit_fatal ("ERROR opening V4L interface");
+
+	
+  memset(&vd->cap, 0, sizeof(struct v4l2_capability));
+  err = ioctl(vd->fd, VIDIOC_QUERYCAP, &vd->cap);
+  if (err < 0) {
+    fprintf(stderr, "Error opening device %s: unable to query device.\n", vd->videodevice);
+    return err;
+  }
+	
+  if ((vd->cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) == 0) {
+    fprintf(stderr, "Error opening device %s: video capture not supported.\n",
+           vd->videodevice);
+    return -1;
+  }
+	
+	if (!(vd->cap.capabilities & V4L2_CAP_READWRITE)) {
+		fprintf(stderr, "%s does not support read i/o\n", vd->videodevice);
+    return -1;
+	}
+  /*
+   * set format in
+   */
+  memset(&vd->fmt, 0, sizeof(struct v4l2_format));
+	
+  vd->fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  vd->fmt.fmt.pix.width = vd->hdrwidth;
+  vd->fmt.fmt.pix.height = vd->hdrheight;
+  vd->fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV422P;
+  vd->fmt.fmt.pix.field = V4L2_FIELD_ANY;
+	
+  err = ioctl(vd->fd, VIDIOC_S_FMT, &vd->fmt);
+	
+  if (err < 0) {
+    perror("Unable to set format");
+    return err;
+  }
+
+  if ((vd->fmt.fmt.pix.width != vd->hdrwidth) ||
+      (vd->fmt.fmt.pix.height != vd->hdrheight)) {
+    fprintf(stderr, " format asked unavailable get width %d height %d \n", vd->fmt.fmt.pix.width, vd->fmt.fmt.pix.height);
+	
+		vd->hdrwidth = vd->fmt.fmt.pix.width;
+		vd->hdrheight = vd->fmt.fmt.pix.height;
+	}
+	
+
+  vd->framesizeIn=vd->hdrwidth*vd->hdrheight*2;  //RGB565 
+
   vd->pFramebuffer=(unsigned char *) malloc ((size_t) vd->framesizeIn ); //just in case
   
   vd->formatIn=0;
 
-  DBG("Opening device\n");
-  
-  if ((vd->fd = open( vd->videodevice, O_RDWR)) == -1)
-    exit_fatal ("ERROR opening V4L interface");
 
   DBG("Allocating input buffers\n");
   
@@ -120,14 +162,15 @@ int close_s3c2410 (struct vdIn *vd)
 }
 
 int convertframe(unsigned char *dst,unsigned char *src, 
-		 int width,int height, int formatIn, int qualite,int buf_size)
+		 int width,int height, int formatIn, int qualite,int buf_size,
+		 int grayscale)
 { 
 	 int ret=0;
 	 //unsigned char *tmp=malloc(width*height*2);
 	 
-	 RGB565_2_YCbCr420(src,src,width,height); //inplace conversion
+	 //RGB565_2_YCbCr420(src,src,width,height); //inplace conversion
 	 
-	 ret=s_encode_image(src,dst,qualite,FORMAT_CbCr420,width,height,buf_size);
+	 ret=s_encode_image(src,dst,qualite,grayscale?FORMAT_CbCr400:FORMAT_CbCr422p,width,height,buf_size);
 	 //free(tmp);
 	 return ret;
 }
@@ -179,7 +222,7 @@ int s3c2410_Grab (struct vdIn *vd )
   jpegsize= convertframe(vd->ptframe[vd->frame_cour]+ sizeof(struct frame_t),
     vd->pFramebuffer,
     vd->hdrwidth, vd->hdrheight,
-    vd->formatIn,  qualite, vd->framesizeIn); 
+    vd->formatIn,  vd->quality, vd->framesizeIn,vd->grayscale); 
 		
     
   headerframe=(struct frame_t*)vd->ptframe[vd->frame_cour];

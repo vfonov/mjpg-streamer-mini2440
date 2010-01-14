@@ -358,7 +358,7 @@ static void initialization(S_JPEG_ENCODER_STRUCTURE * jpeg,
                            uint32_t image_format,
                            uint32_t image_width, uint32_t image_height)
 {
-  S_UINT mcu_width, mcu_height, bytes_per_pixel;
+  S_UINT mcu_width=8, mcu_height=8, bytes_per_pixel=1;
   jpeg->lcode = 0;
   jpeg->bitindex = 0;
 
