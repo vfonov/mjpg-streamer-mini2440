@@ -219,6 +219,7 @@ int s3c2410_Grab (struct vdIn *vd )
     vd->pFramebuffer, vd->hdrwidth, vd->hdrheight, qualite); 
     */
   temps = ms_time();
+	
   jpegsize= convertframe(vd->ptframe[vd->frame_cour]+ sizeof(struct frame_t),
     vd->pFramebuffer,
     vd->hdrwidth, vd->hdrheight,

@@ -296,6 +296,7 @@ void send_stream(int fd) {
     frame_size = pglobal->size;
 
     /* check if framebuffer is large enough, increase it if necessary */
+#if 1 
     if ( frame_size > max_frame_size ) {
       DBG("increasing buffer size to %d\n", frame_size);
 
@@ -309,12 +310,11 @@ void send_stream(int fd) {
 
       frame = tmp;
     }
-
-    memcpy(frame, pglobal->buf, frame_size);
+		memcpy(frame, pglobal->buf, frame_size);
+		pthread_mutex_unlock( &pglobal->db );
+#endif 
+    
     DBG("got frame (size: %d kB)\n", frame_size/1024);
-
-    pthread_mutex_unlock( &pglobal->db );
-
     /*
      * print the individual mimetype and the length
      * sending the content-length fixes random stream disruption observed
@@ -327,11 +327,12 @@ void send_stream(int fd) {
     if ( write(fd, buffer, strlen(buffer)) < 0 ) break;
 
     DBG("sending frame\n");
-    if( write(fd, frame, frame_size) < 0 ) break;
+    if( write(fd, frame, frame_size) < 0 ) break; //pglobal->buf
 
     DBG("sending boundary\n");
     sprintf(buffer, "\r\n--" BOUNDARY "\r\n");
-    if ( write(fd, buffer, strlen(buffer)) < 0 ) break;
+    if ( write(fd, buffer, strlen(buffer)) < 0 ) 
+			break;
   }
 
   free(frame);
