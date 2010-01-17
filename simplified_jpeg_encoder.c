@@ -471,9 +471,11 @@ uint32_t s_encode_image(uint8_t * input_ptr, uint8_t * output_ptr,
 
   uint8_t * output;
 	
-  //S_JPEG_ENCODER_STRUCTURE JpegStruct;
-  S_JPEG_ENCODER_STRUCTURE * enc = (S_JPEG_ENCODER_STRUCTURE *)malloc(sizeof(S_JPEG_ENCODER_STRUCTURE));
-	memset(enc,0,sizeof(S_JPEG_ENCODER_STRUCTURE));
+  S_JPEG_ENCODER_STRUCTURE JpegStruct;
+  S_JPEG_ENCODER_STRUCTURE * enc = &JpegStruct;
+	
+	/*(S_JPEG_ENCODER_STRUCTURE *)malloc(sizeof(S_JPEG_ENCODER_STRUCTURE));
+	memset(enc,0,sizeof(S_JPEG_ENCODER_STRUCTURE));*/
 	
   output = output_ptr;
 
@@ -518,7 +520,7 @@ uint32_t s_encode_image(uint8_t * input_ptr, uint8_t * output_ptr,
 
   /* Close Routine */
   output_ptr = close_bitstream(enc,output_ptr);
-  free(enc);
+  //free(enc);
 	
   return (uint32_t)(output_ptr - output);
 }

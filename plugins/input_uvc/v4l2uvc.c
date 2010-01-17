@@ -39,6 +39,7 @@ int init_videoIn(struct vdIn *vd, char *device, int width, int height, int fps, 
     return -1;
   if (grabmethod < 0 || grabmethod > 1)
     grabmethod = 1;		//mmap by default;
+	
   vd->videodevice = NULL;
   vd->status = NULL;
   vd->pictName = NULL;
@@ -54,6 +55,7 @@ int init_videoIn(struct vdIn *vd, char *device, int width, int height, int fps, 
   vd->fps = fps;
   vd->formatIn = format;
   vd->grabmethod = grabmethod;
+	
   if (init_v4l2 (vd) < 0) {
     fprintf (stderr, " Init v4L2 failed !! exit fatal \n");
     goto error;;
@@ -63,19 +65,28 @@ int init_videoIn(struct vdIn *vd, char *device, int width, int height, int fps, 
 	
   switch (vd->formatIn) {
   case V4L2_PIX_FMT_MJPEG:
+		
     vd->tmpbuffer = (unsigned char *) calloc(1, (size_t) vd->framesizeIn);
     if (!vd->tmpbuffer)
       goto error;
+		
     vd->framebuffer =
         (unsigned char *) calloc(1, (size_t) vd->width * (vd->height + 8) * 2);
+				
     break;
+		
+  default: //asuume Grayscale enccoding
+    //fprintf(stderr, " should never arrive exit fatal !!\n");
+    //goto error;
+		fprintf(stderr,"WARNING: unknown frame format, expect wiered results!\n");
+		
+	case V4L2_PIX_FMT_RGB565:
+	case V4L2_PIX_FMT_YUV422P:
   case V4L2_PIX_FMT_YUYV:
+	case V4L2_PIX_FMT_RGB32:
+	case V4L2_PIX_FMT_GREY:
     vd->framebuffer =
         (unsigned char *) calloc(1, (size_t) vd->framesizeIn);
-    break;
-  default:
-    fprintf(stderr, " should never arrive exit fatal !!\n");
-    goto error;
     break;
   }
   if (!vd->framebuffer)
