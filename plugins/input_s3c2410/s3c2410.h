@@ -51,7 +51,7 @@
 #define WIDTH 1280
 #define HEIGHT 1024
 #define BPPIN 8
-#define OUTFRMNUMB 4
+#define OUTFRMNUMB 1
 
 
 struct frame_t{
