@@ -30,6 +30,7 @@
 #include <getopt.h>
 #include <pthread.h>
 #include <sched.h>
+#include <sys/mman.h>
 
 #include "../../utils.h"
 #include "../../mjpg_streamer.h"
@@ -48,6 +49,7 @@ int init_s3c2410 (struct vdIn *vd, char *device,
   int err = -1;
   int f;
   int i;
+	int ret;
 
   if (vd == NULL || device == NULL)
     return -1;
@@ -107,32 +109,103 @@ int init_s3c2410 (struct vdIn *vd, char *device,
 	}
 	
 
-  vd->framesizeIn=vd->hdrwidth*vd->hdrheight*2;  //RGB565 
+  vd->framesizeIn=vd->hdrwidth*vd->hdrheight*2;  
 
   vd->pFramebuffer=(unsigned char *) malloc ((size_t) vd->framesizeIn ); //just in case
   
-  vd->formatIn=0;
 
+  memset(&vd->rb, 0, sizeof(struct v4l2_requestbuffers));
+  vd->rb.count = NB_BUFFER;
+  vd->rb.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  vd->rb.memory = V4L2_MEMORY_MMAP;
 
-  DBG("Allocating input buffers\n");
+  ret = ioctl(vd->fd, VIDIOC_REQBUFS, &vd->rb);
+  if (ret < 0) {
+    perror("Unable to allocate buffers");
+    return ret;
+  }
+
+  /*
+   * map the buffers
+   */
+  for (i = 0; i < NB_BUFFER; i++) {
+    memset(&vd->buf, 0, sizeof(struct v4l2_buffer));
+    vd->buf.index = i;
+    vd->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    vd->buf.memory = V4L2_MEMORY_MMAP;
+    ret = ioctl(vd->fd, VIDIOC_QUERYBUF, &vd->buf);
+    if (ret < 0) {
+      perror("Unable to query buffer");
+			return 0;
+    }
+
+/*    if (debug)
+      fprintf(stderr, "length: %u offset: %u\n", vd->buf.length, vd->buf.m.offset);*/
+
+    vd->mem[i] = mmap(0 /* start anywhere */ ,
+                      vd->buf.length, PROT_READ, MAP_SHARED, vd->fd,
+                      vd->buf.m.offset);
+    if (vd->mem[i] == MAP_FAILED) {
+      perror("Unable to map buffer");
+			return ret;
+    }
+/*    if (debug)
+      fprintf(stderr, "Buffer mapped at address %p.\n", vd->mem[i]);*/
+  }
+	
+  /*
+   * Queue the buffers.
+   */
+  for (i = 0; i < NB_BUFFER; ++i) {
+    memset(&vd->buf, 0, sizeof(struct v4l2_buffer));
+    vd->buf.index = i;
+    vd->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    vd->buf.memory = V4L2_MEMORY_MMAP;
+    ret = ioctl(vd->fd, VIDIOC_QBUF, &vd->buf);
+    if (ret < 0) {
+      perror("Unable to queue buffer");
+			return ret;
+    }
+  }
+	
+
+  //DBG("Allocating input buffers\n");
   
   /* allocate the 4 frames output buffer */
+	/*
   for (i = 0; i < OUTFRMNUMB; i++)
   {
       vd->ptframe[i] = NULL;
       vd->ptframe[i] = (unsigned char *) malloc ((size_t) vd->framesizeIn+sizeof(struct frame_t) );
       vd->framelock[i] = 0;
-  }
+  }*/
 
   vd->frame_cour = 0;
   
   pthread_mutex_init (&vd->grabmutex, NULL);
-  printf("Allocated\n");
+  //printf("Allocated\n");
+	
+  int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+  ret = ioctl(vd->fd, VIDIOC_STREAMON, &type);
+  if (ret < 0) {
+    perror("Unable to start capture");
+    return ret;
+  }
+	
   return 0;
 }
 
 int close_s3c2410 (struct vdIn *vd)
 {
+  int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  int ret;
+
+  ret = ioctl(vd->fd, VIDIOC_STREAMOFF, &type);
+  if (ret < 0) {
+    perror("Unable to stop capture");
+  }
+	
   int i;
   free(vd->pFramebuffer);
   vd->pFramebuffer = NULL;
@@ -146,16 +219,17 @@ int close_s3c2410 (struct vdIn *vd)
       vd->videodevice = NULL;
   }
 
+/*
   for (i = 0; i < OUTFRMNUMB; i++)
   {
-      if (vd->ptframe[i])
-	{
+   if (vd->ptframe[i])
+	 {
 	  free (vd->ptframe[i]);
 	  vd->ptframe[i] = NULL;
 	  vd->framelock[i] = 0;
 	  DBG("freeing output buffer %d\n",i);
-	}
-   }
+	 }
+  }*/
 
    pthread_mutex_destroy (&vd->grabmutex);
    return 0;
@@ -180,6 +254,7 @@ int s3c2410_Grab (struct vdIn *vd )
   static int frame = 0;
 
   int len;
+	int ret;
   int size;
   int err = 0;
   int jpegsize = 0;
@@ -193,23 +268,35 @@ int s3c2410_Grab (struct vdIn *vd )
 
 /* read method */
   size = vd->framesizeIn;
-  
+	
+  memset(&vd->buf, 0, sizeof(struct v4l2_buffer));
+  vd->buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  vd->buf.memory = V4L2_MEMORY_MMAP;
+
+  ret = ioctl(vd->fd, VIDIOC_DQBUF, &vd->buf);
+  if (ret < 0) {
+    perror("Unable to dequeue buffer");
+		return 0;
+  }
+	
+  /*
   do
   {
     len = read (vd->fd, vd->pFramebuffer, size);
     
     if(!len ) //not yet ready
       sched_yield();
+		
     
-  } while(!len);
+  } while(!len)*/
   
-  if(len<0) 
+  /*if(len<0) 
   {
         printf ("2440 read error\n");
         return -1;
-  }
+  }*/
   /* Is there someone using the frame */
-    while((vd->framelock[vd->frame_cour] != 0)&& vd->signalquit)
+  while((vd->framelock[vd->frame_cour] != 0)&& vd->signalquit)
       usleep(1000);
 
   pthread_mutex_lock (&vd->grabmutex);
@@ -218,12 +305,20 @@ int s3c2410_Grab (struct vdIn *vd )
     jpegsize =jpeg_compress(vd->ptframe[vd->frame_cour]+ sizeof(struct frame_t),len,
     vd->pFramebuffer, vd->hdrwidth, vd->hdrheight, qualite); 
     */
+	//memmove(vd->mem[vd->buf.index], (size_t) vd->framesizeIn);
   temps = ms_time();
 	
   jpegsize= convertframe(vd->ptframe[vd->frame_cour]+ sizeof(struct frame_t),
-    vd->pFramebuffer,
+    vd->mem[vd->buf.index],//vd->pFramebuffer,
     vd->hdrwidth, vd->hdrheight,
     vd->formatIn,  vd->quality, vd->framesizeIn,vd->grayscale); 
+		
+  ret = ioctl(vd->fd, VIDIOC_QBUF, &vd->buf);
+  if (ret < 0) {
+    perror("Unable to requeue buffer");
+    return 0;
+  }
+		
 		
     
   headerframe=(struct frame_t*)vd->ptframe[vd->frame_cour];

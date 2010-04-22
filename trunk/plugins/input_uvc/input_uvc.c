@@ -80,6 +80,7 @@ static int dynctrls = 1;
 void *cam_thread( void *);
 void cam_cleanup(void *);
 void help(void);
+int input_cmd(in_cmd_type, int);
 
 /*** plugin interface functions ***/
 /******************************************************************************
@@ -95,6 +96,7 @@ int input_init(input_parameter *param) {
   char *argv[MAX_ARGUMENTS]={NULL}, *dev = "/dev/video0", *s;
   int argc=1, width=640, height=480, fps=5, format=V4L2_PIX_FMT_MJPEG, i;
   in_cmd_type led = IN_CMD_LED_AUTO;
+	char fourcc[5]={0,0,0,0,0};
 
   /* initialize the mutes variable */
   if( pthread_mutex_init(&controls_mutex, NULL) != 0 ) {
@@ -282,8 +284,11 @@ int input_init(input_parameter *param) {
   IPRINT("Using V4L2 device.: %s\n", dev);
   IPRINT("Desired Resolution: %i x %i\n", width, height);
   IPRINT("Frames Per Second.: %i\n", fps);
-  IPRINT("Format............: %s\n", (format==V4L2_PIX_FMT_YUYV)?"YUV":"MJPEG");
-  if ( format == V4L2_PIX_FMT_YUYV )
+	
+	memmove(fourcc,(char*)&format,4);
+  IPRINT("Format............: %s\n", fourcc);
+	
+  if ( format != V4L2_PIX_FMT_MJPEG )
     IPRINT("JPEG Quality......: %d\n", gquality);
 
   /* open video device and prepare data structure */
@@ -609,6 +614,42 @@ int input_cmd(in_cmd_type cmd, int value) {
       res = v4l2SetControl(videoIn, V4L2_CID_LED1_MODE_LOGITECH, 2);
       res = v4l2SetControl(videoIn, V4L2_CID_LED1_FREQUENCY_LOGITECH, 255);
     break;
+    
+    case IN_CMD_EXPOSURE_MANUAL:
+      res = v4l2SetControl(videoIn, V4L2_CID_EXPOSURE_AUTO, 0);
+      /*{ struct v4l2_control control;
+      control.id    =V4L2_CID_EXPOSURE_AUTO_PRIORITY;
+					control.value =0;
+					if ((value = ioctl(videoIn->fd, VIDIOC_S_CTRL, &control)) < 0)
+						printf("Set Auto Exposure off error\n");
+					else
+						printf("11Auto Exposure set to %d\n", control.value);
+
+  }*/
+    printf("uga manual: %d\n", res);
+    break;
+    
+    case IN_CMD_EXPOSURE_AUTO:
+      res = v4l2SetControl(videoIn, V4L2_CID_EXPOSURE_AUTO, 3);
+      printf("uga auto: %d\n", res);
+    /*  { struct v4l2_control control;
+      control.id    =V4L2_CID_EXPOSURE_AUTO;
+					control.value =1;
+					if ((value = ioctl(videoIn->fd, VIDIOC_S_CTRL, &control)) < 0)
+						printf("Set Auto Exposure on error\n");
+					else
+						printf("22Auto Exposure set to %d\n", control.value);
+
+  }*/
+    break;
+    
+    case IN_CMD_EXPOSURE_SHUTTER_PRIO:
+      res = v4l2SetControl(videoIn, V4L2_CID_EXPOSURE_AUTO, 4);
+    break;
+    
+    case IN_CMD_EXPOSURE_APERTURE_PRIO:
+      res = v4l2SetControl(videoIn, V4L2_CID_EXPOSURE_AUTO, 8);
+    break;
 
     default:
       DBG("nothing matched\n");
@@ -700,9 +741,9 @@ void *cam_thread( void *arg ) {
      * Getting JPEGs straight from the webcam, is one of the major advantages of
      * Linux-UVC compatible devices.
      */
-    if (videoIn->formatIn != V4L2_PIX_FMT_MJPEG ) {
-      DBG("compressing frame\n");
-      pglobal->size = compress_yuyv_to_jpeg(videoIn, pglobal->buf, videoIn->framesizeIn, gquality,videoIn->fmt.fmt.pix.pixelformat);
+    if (videoIn->formatIn != V4L2_PIX_FMT_MJPEG) { 
+      DBG("compressing frame\n"); 
+      pglobal->size = compress_yuyv_to_jpeg(videoIn, pglobal->buf, videoIn->framesizeIn, gquality, videoIn->formatIn);
     }
     else {
       DBG("copying frame\n");

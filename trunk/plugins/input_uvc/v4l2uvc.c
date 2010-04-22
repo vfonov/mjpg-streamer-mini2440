@@ -39,7 +39,6 @@ int init_videoIn(struct vdIn *vd, char *device, int width, int height, int fps, 
     return -1;
   if (grabmethod < 0 || grabmethod > 1)
     grabmethod = 1;		//mmap by default;
-	
   vd->videodevice = NULL;
   vd->status = NULL;
   vd->pictName = NULL;
@@ -55,39 +54,28 @@ int init_videoIn(struct vdIn *vd, char *device, int width, int height, int fps, 
   vd->fps = fps;
   vd->formatIn = format;
   vd->grabmethod = grabmethod;
-	
   if (init_v4l2 (vd) < 0) {
     fprintf (stderr, " Init v4L2 failed !! exit fatal \n");
     goto error;;
   }
   /* alloc a temp buffer to reconstruct the pict */
   vd->framesizeIn = (vd->width * vd->height << 1);
-	
   switch (vd->formatIn) {
   case V4L2_PIX_FMT_MJPEG:
-		
     vd->tmpbuffer = (unsigned char *) calloc(1, (size_t) vd->framesizeIn);
     if (!vd->tmpbuffer)
       goto error;
-		
     vd->framebuffer =
         (unsigned char *) calloc(1, (size_t) vd->width * (vd->height + 8) * 2);
-				
     break;
-		
-  default: //asuume Grayscale enccoding
-    //fprintf(stderr, " should never arrive exit fatal !!\n");
-    //goto error;
-		fprintf(stderr,"WARNING: unknown frame format, expect wiered results!\n");
-		
-	case V4L2_PIX_FMT_RGB565:
-	case V4L2_PIX_FMT_YUV422P:
   case V4L2_PIX_FMT_YUYV:
-	case V4L2_PIX_FMT_RGB32:
-	case V4L2_PIX_FMT_GREY:
+  default:
     vd->framebuffer =
         (unsigned char *) calloc(1, (size_t) vd->framesizeIn);
     break;
+    //fprintf(stderr, " should never arrive exit fatal !!\n");
+    //goto error;
+    //break;
   }
   if (!vd->framebuffer)
     goto error;
@@ -139,15 +127,12 @@ static int init_v4l2(struct vdIn *vd)
    * set format in
    */
   memset(&vd->fmt, 0, sizeof(struct v4l2_format));
-	
   vd->fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   vd->fmt.fmt.pix.width = vd->width;
   vd->fmt.fmt.pix.height = vd->height;
   vd->fmt.fmt.pix.pixelformat = vd->formatIn;
   vd->fmt.fmt.pix.field = V4L2_FIELD_ANY;
-	
   ret = ioctl(vd->fd, VIDIOC_S_FMT, &vd->fmt);
-	
   if (ret < 0) {
     perror("Unable to set format");
     goto fatal;
@@ -161,15 +146,15 @@ static int init_v4l2(struct vdIn *vd)
     /*
      * look the format is not part of the deal ???
      */
-    // vd->formatIn = vd->fmt.fmt.pix.pixelformat;
   }
-	
-	if(vd->fmt.fmt.pix.pixelformat != vd->formatIn)
+	if(vd->fmt.fmt.pix.pixelformat!=vd->formatIn)
 	{
-		char fmt_string[5]={0,0,0,0,0};
-		memmove(fmt_string,&vd->fmt.fmt.pix.pixelformat,4);
-		fprintf(stderr, " Pixel format is unavailable, using %s \n",fmt_string );
-		vd->formatIn = vd->fmt.fmt.pix.pixelformat;
+		char fourcc1[5]={0,0,0,0,0};
+		char fourcc2[5]={0,0,0,0,0};
+		memmove(fourcc1,(char*)&vd->formatIn,4);
+		memmove(fourcc2,(char*)&vd->fmt.fmt.pix.pixelformat,4);
+		fprintf(stderr, " requested %s but got %s format instead\n",fourcc1,fourcc2);
+    vd->formatIn = vd->fmt.fmt.pix.pixelformat;
 	}
 
   /*
@@ -182,6 +167,7 @@ static int init_v4l2(struct vdIn *vd)
   setfps->parm.capture.timeperframe.numerator = 1;
   setfps->parm.capture.timeperframe.denominator = vd->fps;
   ret = ioctl(vd->fd, VIDIOC_S_PARM, setfps);
+
   /*
    * request buffers
    */
@@ -360,17 +346,16 @@ int uvcGrab(struct vdIn *vd)
         fprintf(stderr, "bytes in used %d \n", vd->buf.bytesused);
       break;
 
-    //case V4L2_PIX_FMT_YUYV:
-		default:
+    case V4L2_PIX_FMT_YUYV:
+    default:
       if (vd->buf.bytesused > vd->framesizeIn)
         memcpy (vd->framebuffer, vd->mem[vd->buf.index], (size_t) vd->framesizeIn);
       else
         memcpy (vd->framebuffer, vd->mem[vd->buf.index], (size_t) vd->buf.bytesused);
       break;
 
-    /*default:
-      goto err;
-    break;*/
+      //goto err;
+    break;
   }
 
   ret = ioctl(vd->fd, VIDIOC_QBUF, &vd->buf);
@@ -420,7 +405,7 @@ static int isv4l2Control(struct vdIn *vd, int control, struct v4l2_queryctrl *qu
     return -1;
   }
 
-  if (queryctrl->flags & V4L2_CTRL_TYPE_BOOLEAN) {
+  if (queryctrl->type & V4L2_CTRL_TYPE_BOOLEAN) {
     return 1;
   }
 
