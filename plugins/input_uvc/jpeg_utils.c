@@ -41,7 +41,9 @@ int compress_yuyv_to_jpeg(struct vdIn *vd, unsigned char *buffer, int size, int 
 {
 	//TODO: figure out how to convert quality to simple_jpeg_encoder quality
   static int written;
-	
+	/*char fourcc[5]={0,0,0,0,0};
+	memmove(fourcc,&format,4);
+	printf("Compressing %s\n",fourcc);*/
 	switch(format)
 	{
 		case V4L2_PIX_FMT_YUYV: 

@@ -28,10 +28,13 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <syslog.h>
+#include <netdb.h>
+#include <errno.h>
 
 #include "../../mjpg_streamer.h"
 #include "../../utils.h"
@@ -218,6 +221,68 @@ void decodeBase64(char *data) {
 }
 
 /******************************************************************************
+Description.: convert a hexadecimal ASCII character to integer 
+Input Value.: ASCII character
+Return Value: corresponding value between 0 and 15, or -1 in case of error
+******************************************************************************/
+int hex_char_to_int(char in) {
+  if ( in >= '0' && in <= '9' )
+    return in - '0';
+
+  if ( in >= 'a' && in <= 'f' )
+    return (in - 'a')+10;
+
+  if ( in >= 'A' && in <= 'F' )
+    return (in - 'A')+10;
+
+  return -1;
+}
+
+/******************************************************************************
+Description.: replace %XX with the character code it represents, URI
+Input Value.: string to unescape
+Return Value: 0 if everything is ok, -1 in case of error
+******************************************************************************/
+int unescape(char *string) {
+  char *source = string, *destination = string;
+  int src, dst, length=strlen(string), rc;
+
+  /* iterate over the string */
+  for (dst=0, src=0; src<length; src++) {
+
+    /* is it an escape character? */
+    if ( source[src] != '%' ) {
+      /* no, so just go to the next character */
+      destination[dst] = source[src];
+      dst++;
+      continue;
+    }
+
+    /* yes, it is an escaped character */
+
+    /* check if there are enough characters */
+    if ( src+2 > length ) {
+      return -1;
+      break;
+    }
+
+    /* perform replacement of %## with the corresponding character */
+    if ( (rc = hex_char_to_int(source[src+1])) == -1 ) return -1;
+    destination[dst] = rc*16;
+    if ( (rc = hex_char_to_int(source[src+2])) == -1 ) return -1;
+    destination[dst] += rc;
+
+    /* advance pointers, here is the reason why the resulting string is shorter */
+    dst++; src+=2;
+  }
+
+  /* ensure the string is properly finished with a null-character */
+  destination[dst] = '\0';
+
+  return 0;
+}
+
+/******************************************************************************
 Description.: Send a complete HTTP response and a single JPG-frame.
 Input Value.: fildescriptor fd to send the answer to
 Return Value: -
@@ -253,11 +318,11 @@ void send_snapshot(int fd) {
                   "\r\n");
 
   /* send header and image now */
-  if( write(fd, buffer, strlen(buffer)) < 0 ) {
+  if( write(fd, buffer, strlen(buffer)) < 0 || \
+      write(fd, frame, frame_size) < 0) {
     free(frame);
     return;
   }
-  write(fd, frame, frame_size);
 
   free(frame);
 }
@@ -296,7 +361,6 @@ void send_stream(int fd) {
     frame_size = pglobal->size;
 
     /* check if framebuffer is large enough, increase it if necessary */
-#if 1 
     if ( frame_size > max_frame_size ) {
       DBG("increasing buffer size to %d\n", frame_size);
 
@@ -310,11 +374,12 @@ void send_stream(int fd) {
 
       frame = tmp;
     }
-		memcpy(frame, pglobal->buf, frame_size);
-		pthread_mutex_unlock( &pglobal->db );
-#endif 
-    
+
+    memcpy(frame, pglobal->buf, frame_size);
     DBG("got frame (size: %d kB)\n", frame_size/1024);
+
+    pthread_mutex_unlock( &pglobal->db );
+
     /*
      * print the individual mimetype and the length
      * sending the content-length fixes random stream disruption observed
@@ -327,12 +392,11 @@ void send_stream(int fd) {
     if ( write(fd, buffer, strlen(buffer)) < 0 ) break;
 
     DBG("sending frame\n");
-    if( write(fd, frame, frame_size) < 0 ) break; //pglobal->buf
+    if( write(fd, frame, frame_size) < 0 ) break;
 
     DBG("sending boundary\n");
     sprintf(buffer, "\r\n--" BOUNDARY "\r\n");
-    if ( write(fd, buffer, strlen(buffer)) < 0 ) 
-			break;
+    if ( write(fd, buffer, strlen(buffer)) < 0 ) break;
   }
 
   free(frame);
@@ -386,7 +450,9 @@ void send_error(int fd, int which, char *message) {
                     "%s", message);
   }
 
-  write(fd, buffer, strlen(buffer));
+  if( write(fd, buffer, strlen(buffer)) < 0 ) {
+    DBG("write failed, done anyway\n");
+  }
 }
 
 /******************************************************************************
@@ -471,13 +537,13 @@ Input Value.: * fd.......: filedescriptor to send HTTP response to.
 Return Value: -
 ******************************************************************************/
 void command(int id, int fd, char *parameter) {
-  char buffer[BUFFER_SIZE] = {0}, *command=NULL, *svalue=NULL;
+  char buffer[BUFFER_SIZE] = {0}, *command=NULL, *svalue=NULL, *value;
   int i=0, res=0, ivalue=0, len=0;
 
   DBG("parameter is: %s\n", parameter);
 
   /* sanity check of parameter-string */
-  if ( parameter == NULL || strlen(parameter) >= 100 || strlen(parameter) == 0 ) {
+  if ( parameter == NULL || strlen(parameter) >= 255 || strlen(parameter) == 0 ) {
     DBG("parameter string looks bad\n");
     send_error(fd, 400, "Parameter-string of command does not look valid.");
     return;
@@ -501,10 +567,10 @@ void command(int id, int fd, char *parameter) {
   DBG("command string: %s\n", command);
 
   /* find and convert optional parameter "value" */
-  if ( (svalue = strstr(parameter, "value=")) != NULL ) {
-    svalue += strlen("value=");
-    len = strspn(svalue, "-1234567890");
-    if ( (svalue = strndup(svalue, len)) == NULL ) {
+  if ( (value = strstr(parameter, "value=")) != NULL ) {
+    value += strlen("value=");
+    len = strspn(value, "-1234567890");
+    if ( (svalue = strndup(value, len)) == NULL ) {
       if (command != NULL) free(command);
       send_error(fd, 500, "could not allocate memory");
       LOG("could not allocate memory\n");
@@ -512,7 +578,6 @@ void command(int id, int fd, char *parameter) {
     }
     ivalue = MAX(MIN(strtol(svalue, NULL, 10), 999), -999);
     DBG("converted value form string %s to integer %d\n", svalue, ivalue);
-    free(svalue);
   }
 
   /*
@@ -524,11 +589,8 @@ void command(int id, int fd, char *parameter) {
   for ( i=0; i < LENGTH_OF(in_cmd_mapping); i++ ) {
     if ( strcmp(in_cmd_mapping[i].string, command) == 0 ) {
 
-      if ( pglobal->in.cmd == NULL ) {
-        send_error(fd, 501, "input plugin does not implement commands");
-        if (command != NULL) free(command);
-        return;
-      }
+      if ( pglobal->in.cmd == NULL )
+        continue;
 
       res = pglobal->in.cmd(in_cmd_mapping[i].cmd, ivalue);
       break;
@@ -543,6 +605,14 @@ void command(int id, int fd, char *parameter) {
     }
   }
 
+  /* check if the command is for the mjpg-streamer application itself */
+  for ( i=0; i < LENGTH_OF(control_cmd_mapping); i++ ) {
+    if ( strcmp(control_cmd_mapping[i].string, command) == 0 ) {
+      res = pglobal->control(control_cmd_mapping[i].cmd, value);
+      break;
+    }
+  }
+
   /* Send HTTP-response */
   sprintf(buffer, "HTTP/1.0 200 OK\r\n" \
                   "Content-type: text/plain\r\n" \
@@ -550,9 +620,12 @@ void command(int id, int fd, char *parameter) {
                   "\r\n" \
                   "%s: %d", command, res);
 
-  write(fd, buffer, strlen(buffer));
+  if( write(fd, buffer, strlen(buffer)) < 0 ) {
+    DBG("write failed, done anyway\n");
+  }
 
   if (command != NULL) free(command);
+  if (svalue != NULL) free(svalue);
 }
 
 /******************************************************************************
@@ -613,13 +686,21 @@ void *client_thread( void *arg ) {
     pb += strlen("GET /?action=command");
 
     /* only accept certain characters */
-    len = MIN(MAX(strspn(pb, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-=&1234567890"), 0), 100);
+    len = MIN(MAX(strspn(pb, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-=&1234567890%./"), 0), 100);
     req.parameter = malloc(len+1);
     if ( req.parameter == NULL ) {
       exit(EXIT_FAILURE);
     }
     memset(req.parameter, 0, len+1);
     strncpy(req.parameter, pb, len);
+
+    if ( unescape(req.parameter) == -1 ) {
+      free(req.parameter);
+      send_error(lcfd.fd, 500, "could not properly unescape command parameter string");
+      LOG("could not properly unescape command parameter string\n");
+      close(lcfd.fd);
+      return NULL;
+    }
 
     DBG("command parameter (len: %d): \"%s\"\n", len, req.parameter);
   }
@@ -727,10 +808,12 @@ Return Value: -
 ******************************************************************************/
 void server_cleanup(void *arg) {
   context *pcontext = arg;
+  int i;
 
   OPRINT("cleaning up ressources allocated by server thread #%02d\n", pcontext->id);
 
-  close(pcontext->sd);
+  for(i = 0; i < MAX_SD_LEN; i++)
+    close(pcontext->sd[i]);
 }
 
 /******************************************************************************
@@ -740,10 +823,17 @@ Input Value.: arg is a pointer to the globals struct
 Return Value: always NULL, will only return on exit
 ******************************************************************************/
 void *server_thread( void *arg ) {
-  struct sockaddr_in addr, client_addr;
   int on;
   pthread_t client;
-  socklen_t addr_len = sizeof(struct sockaddr_in);
+  struct addrinfo *aip, *aip2;
+  struct addrinfo hints;
+  struct sockaddr_storage client_addr;
+  socklen_t addr_len = sizeof(struct sockaddr_storage);
+  fd_set selectfds;
+  int max_fds = 0;
+  char name[NI_MAXHOST];
+  int err;
+  int i;
 
   context *pcontext = arg;
   pglobal = pcontext->pglobal;
@@ -751,38 +841,68 @@ void *server_thread( void *arg ) {
   /* set cleanup handler to cleanup ressources */
   pthread_cleanup_push(server_cleanup, pcontext);
 
-  /* open socket for server */
-  pcontext->sd = socket(PF_INET, SOCK_STREAM, 0);
-  if ( pcontext->sd < 0 ) {
-    fprintf(stderr, "socket failed\n");
+  bzero(&hints, sizeof(hints));
+  hints.ai_family = PF_UNSPEC;
+  hints.ai_flags = AI_PASSIVE;
+  hints.ai_socktype = SOCK_STREAM;
+
+  snprintf(name, sizeof(name), "%d", ntohs(pcontext->conf.port));
+  if((err = getaddrinfo(NULL, name, &hints, &aip)) != 0) {
+    perror(gai_strerror(err));
     exit(EXIT_FAILURE);
   }
 
-  /* ignore "socket already in use" errors */
-  on = 1;
-  if (setsockopt(pcontext->sd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
-    perror("setsockopt(SO_REUSEADDR) failed");
-    exit(EXIT_FAILURE);
+  for(i = 0; i < MAX_SD_LEN; i++)
+    pcontext->sd[i] = -1;
+
+  /* open sockets for server (1 socket / address family) */
+  i = 0;
+  for(aip2 = aip; aip2 != NULL; aip2 = aip2->ai_next)
+  {
+    if((pcontext->sd[i] = socket(aip2->ai_family, aip2->ai_socktype, 0)) < 0) {
+      continue;
+    }
+
+    /* ignore "socket already in use" errors */
+    on = 1;
+    if(setsockopt(pcontext->sd[i], SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
+      perror("setsockopt(SO_REUSEADDR) failed");
+    }
+
+    /* IPv6 socket should listen to IPv6 only, otherwise we will get "socket already in use" */
+    on = 1;
+    if(aip2->ai_family == AF_INET6 && setsockopt(pcontext->sd[i], IPPROTO_IPV6, IPV6_V6ONLY,
+                  (const void *)&on , sizeof(on)) < 0) {
+      perror("setsockopt(IPV6_V6ONLY) failed");
+    }
+
+    /* perhaps we will use this keep-alive feature oneday */
+    /* setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on)); */
+
+    if(bind(pcontext->sd[i], aip2->ai_addr, aip2->ai_addrlen) < 0) {
+      perror("bind");
+      pcontext->sd[i] = -1;
+      continue;
+    }
+
+    if(listen(pcontext->sd[i], 10) < 0) {
+      perror("listen");
+      pcontext->sd[i] = -1;
+    } else {
+      i++;
+      if(i >= MAX_SD_LEN) {
+        OPRINT("%s(): maximum number of server sockets exceeded", __FUNCTION__);
+        i--;
+        break;
+      }
+    }
   }
 
-  /* perhaps we will use this keep-alive feature oneday */
-  /* setsockopt(sd, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on)); */
+  pcontext->sd_len = i;
 
-  /* configure server address to listen to all local IPs */
-  memset(&addr, 0, sizeof(addr));
-  addr.sin_family = AF_INET;
-  addr.sin_port = pcontext->conf.port; /* is already in right byteorder */
-  addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  if ( bind(pcontext->sd, (struct sockaddr*)&addr, sizeof(addr)) != 0 ) {
-    perror("bind");
+  if(pcontext->sd_len < 1) {
     OPRINT("%s(): bind(%d) failed", __FUNCTION__, htons(pcontext->conf.port));
     closelog();
-    exit(EXIT_FAILURE);
-  }
-
-  /* start listening on socket */
-  if ( listen(pcontext->sd, 10) != 0 ) {
-    fprintf(stderr, "listen failed\n");
     exit(EXIT_FAILURE);
   }
 
@@ -797,20 +917,48 @@ void *server_thread( void *arg ) {
     }
 
     DBG("waiting for clients to connect\n");
-    pcfd->fd = accept(pcontext->sd, (struct sockaddr *)&client_addr, &addr_len);
-    pcfd->pc = pcontext;
 
-    /* start new thread that will handle this TCP connected client */
-    DBG("create thread to handle client that just established a connection\n");
-    syslog(LOG_INFO, "serving client: %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+    do {
+      FD_ZERO(&selectfds);
 
-    if( pthread_create(&client, NULL, &client_thread, pcfd) != 0 ) {
-      DBG("could not launch another client thread\n");
-      close(pcfd->fd);
-      free(pcfd);
-      continue;
+      for(i = 0; i < MAX_SD_LEN; i++) {
+        if(pcontext->sd[i] != -1) {
+          FD_SET(pcontext->sd[i], &selectfds);
+
+          if(pcontext->sd[i] > max_fds)
+            max_fds = pcontext->sd[i];
+        }
+      }
+
+      err = select(max_fds + 1, &selectfds, NULL, NULL, NULL);
+
+      if (err < 0 && errno != EINTR) {
+        perror("select");
+        exit(EXIT_FAILURE);
+      }
+    } while(err <= 0);
+
+    for(i = 0; i < max_fds + 1; i++) {
+      if(pcontext->sd[i] != -1 && FD_ISSET(pcontext->sd[i], &selectfds)) {
+        pcfd->fd = accept(pcontext->sd[i], (struct sockaddr *)&client_addr, &addr_len);
+        pcfd->pc = pcontext;
+
+        /* start new thread that will handle this TCP connected client */
+        DBG("create thread to handle client that just established a connection\n");
+
+        if(getnameinfo((struct sockaddr *)&client_addr, addr_len, name, sizeof(name), NULL, 0, NI_NUMERICHOST) == 0) {
+          syslog(LOG_INFO, "serving client: %s\n", name);
+        }
+
+        if( pthread_create(&client, NULL, &client_thread, pcfd) != 0 ) {
+          DBG("could not launch another client thread\n");
+          close(pcfd->fd);
+          free(pcfd);
+          continue;
+        }
+        pthread_detach(client);
+      }
     }
-    pthread_detach(client);
   }
 
   DBG("leaving server thread, calling cleanup function now\n");

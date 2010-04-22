@@ -50,6 +50,11 @@
                    "Expires: Mon, 3 Jan 2000 12:34:56 GMT\r\n"
 
 /*
+ * Maximum number of server sockets (i.e. protocol families) to listen.
+ */
+#define MAX_SD_LEN 50
+
+/*
  * Only the following fileypes are supported.
  *
  * Other filetypes are simply ignored!
@@ -104,7 +109,11 @@ static const struct {
   { "led_on", IN_CMD_LED_ON },
   { "led_off", IN_CMD_LED_OFF },
   { "led_auto", IN_CMD_LED_AUTO },
-  { "led_blink", IN_CMD_LED_BLINK }
+  { "led_blink", IN_CMD_LED_BLINK },
+  { "exposure_manual", IN_CMD_EXPOSURE_MANUAL },
+  { "exposure_auto", IN_CMD_EXPOSURE_AUTO },
+  { "exposure_shutter_prio", IN_CMD_EXPOSURE_SHUTTER_PRIO },
+  { "exposure_aperture_prio", IN_CMD_EXPOSURE_APERTURE_PRIO }
 };
 
 /* mapping between command string and command type */
@@ -112,7 +121,16 @@ static const struct {
   const char *string;
   const out_cmd_type cmd;
 } out_cmd_mapping[] = {
-  { "hello_output", OUT_CMD_HELLO }
+  { "hello_output", OUT_CMD_HELLO },
+  { "store", OUT_CMD_STORE }
+};
+
+/* mapping between command string and command type */
+static const struct {
+  const char *string;
+  const control_cmd_type cmd;
+} control_cmd_mapping[] = {
+  { "reconfigure_input", CONTROL_CMD_RECONFIGURE_INPUT }
 };
 
 /* the webserver determines between these values for an answer */
@@ -145,7 +163,8 @@ typedef struct {
 
 /* context of each server thread */
 typedef struct {
-  int sd;
+  int sd[MAX_SD_LEN];
+  int sd_len;
   int id;
   globals *pglobal;
   pthread_t threadID;

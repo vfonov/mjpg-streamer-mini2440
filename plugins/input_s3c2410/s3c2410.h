@@ -52,6 +52,7 @@
 #define HEIGHT 1024
 #define BPPIN 8
 #define OUTFRMNUMB 1
+#define NB_BUFFER 4
 
 
 struct frame_t{
@@ -76,6 +77,8 @@ struct vdIn {
 	char *videodevice ;
 	unsigned char *pFramebuffer;
 	unsigned char *ptframe[OUTFRMNUMB];
+  unsigned char *mem[NB_BUFFER];
+	
 	int framelock[OUTFRMNUMB];
 	pthread_mutex_t grabmutex;
 	int          framesizeIn ;
@@ -87,6 +90,9 @@ struct vdIn {
 	int  signalquit;	
 	struct v4l2_capability cap;
 	struct v4l2_format fmt;
+	struct v4l2_buffer buf;
+	struct v4l2_requestbuffers rb;
+	
   int  grayscale;
 	uint32_t quality;
 	

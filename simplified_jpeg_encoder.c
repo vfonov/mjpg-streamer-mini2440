@@ -263,8 +263,8 @@ static S_UINT zigzag_table[] = {
 /*  and taking integer part */
 INLINE  S_UINT Q15_Division_Integer (uint32_t numer, uint32_t denom) 
 {
-  int i;
 	/*
+  int i;
   denom <<= 15;
   for (i = 16; i > 0; i--)
 	{
@@ -660,7 +660,7 @@ static void read_YCbCr400(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
       *Y1_Ptr++ = *input_ptr++ - 128;
 
     for (j = 8 - cols; j > 0; j--)
-      *Y1_Ptr++ = *(Y1_Ptr - 1);
+      {*Y1_Ptr = *(Y1_Ptr - 1);Y1_Ptr++;}
 
     input_ptr += scan_line_incr;
   }
@@ -668,7 +668,7 @@ static void read_YCbCr400(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
   for (i = 8 - rows; i > 0; i--)
   {
     for (j = 8; j > 0; j--)
-      *Y1_Ptr++ = *(Y1_Ptr - 8);
+      {*Y1_Ptr = *(Y1_Ptr - 8); Y1_Ptr++;}
   }
 }
 
@@ -736,8 +736,10 @@ static void read_YCbCr420(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
     {
       for (j = 8 - Y1_cols; j > 0; j--)
       {
-        *Y1_Ptr++ = *(Y1_Ptr - 1);
-        *Y1Ptr++ = *(Y1Ptr - 1);
+        *Y1_Ptr = *(Y1_Ptr - 1);
+				Y1_Ptr++;
+        *Y1Ptr = *(Y1Ptr - 1);
+				Y1Ptr++;
       }
       for (j = 8; j > 0; j--)
       {
@@ -747,15 +749,19 @@ static void read_YCbCr420(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
     } else {
       for (j = 8 - Y2_cols; j > 0; j--)
       {
-        *Y2_Ptr++ = *(Y2_Ptr - 1);
-        *Y2Ptr++ = *(Y2Ptr - 1);
+        *Y2_Ptr = *(Y2_Ptr - 1);
+				Y2_Ptr++;
+        *Y2Ptr = *(Y2Ptr - 1);
+				Y2Ptr++;
       }
     }
 
     for (j = (16 - cols) >> 1; j > 0; j--)
     {
-      *CB_Ptr++ = *(CB_Ptr - 1);
-      *CR_Ptr++ = *(CR_Ptr - 1);
+      *CB_Ptr = *(CB_Ptr - 1);
+			CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 1);
+			CR_Ptr++;
     }
     Y1_Ptr += 8;
 
@@ -790,36 +796,36 @@ static void read_YCbCr420(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
 
     {
       for (j = 8 - Y1_cols; j > 0; j--)
-
       {
-        *Y3_Ptr++ = *(Y3_Ptr - 1);
-        *Y3Ptr++ = *(Y3Ptr - 1);
+        *Y3_Ptr = *(Y3_Ptr - 1);
+				Y3_Ptr++;
+				
+        *Y3Ptr = *(Y3Ptr - 1);
+				Y3Ptr++;
       }
 
       for (j = 8; j > 0; j--)
-
       {
         *Y4_Ptr++ = *(Y3_Ptr - 1);
         *Y4Ptr++ = *(Y3Ptr - 1);
       }
-    }
-
-    else
-
-    {
+    } else {
       for (j = 8 - Y2_cols; j > 0; j--)
 
       {
-        *Y4_Ptr++ = *(Y4_Ptr - 1);
-        *Y4Ptr++ = *(Y4Ptr - 1);
+        *Y4_Ptr = *(Y4_Ptr - 1);
+				Y4_Ptr++;
+        *Y4Ptr = *(Y4Ptr - 1);
+				Y4Ptr++;
       }
     }
 
     for (j = (16 - cols) >> 1; j > 0; j--)
-
     {
-      *CB_Ptr++ = *(CB_Ptr - 1);
-      *CR_Ptr++ = *(CR_Ptr - 1);
+      *CB_Ptr = *(CB_Ptr - 1);
+			CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 1);
+			CR_Ptr++;
     }
 
     Y3_Ptr += 8;
@@ -836,8 +842,10 @@ static void read_YCbCr420(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
     {
       for (j = 8; j > 0; j--)
       {
-        *Y1_Ptr++ = *(Y1_Ptr - 8);
-        *Y2_Ptr++ = *(Y2_Ptr - 8);
+        *Y1_Ptr = *(Y1_Ptr - 8);
+				Y1_Ptr++;
+        *Y2_Ptr = *(Y2_Ptr - 8);
+				Y2_Ptr++;
       }
     }
     
@@ -847,7 +855,6 @@ static void read_YCbCr420(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
       Y2_Ptr -= 8;
 
       for (j = 8; j > 0; j--)
-
       {
         *Y3_Ptr++ = *Y1_Ptr++;
         *Y4_Ptr++ = *Y2_Ptr++;
@@ -855,13 +862,14 @@ static void read_YCbCr420(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
     }
   } else {
     for (i = (16 - rows); i > 0; i--)
-
     {
       for (j = 8; j > 0; j--)
 
       {
-        *Y3_Ptr++ = *(Y3_Ptr - 8);
-        *Y4_Ptr++ = *(Y4_Ptr - 8);
+        *Y3_Ptr = *(Y3_Ptr - 8);
+				Y3_Ptr++;
+        *Y4_Ptr = *(Y4_Ptr - 8);
+				Y4_Ptr++;
       }
     }
   }
@@ -869,10 +877,11 @@ static void read_YCbCr420(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
   for (i = ((16 - rows) >> 1); i > 0; i--)
   {
     for (j = 8; j > 0; j--)
-
     {
-      *CB_Ptr++ = *(CB_Ptr - 8);
-      *CR_Ptr++ = *(CR_Ptr - 8);
+      *CB_Ptr = *(CB_Ptr - 8);
+			CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 8);
+			CR_Ptr++;
     }
   }
 }
@@ -941,8 +950,8 @@ static void read_YCbCr420p(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,
     {
       for (j = 8 - Y1_cols; j > 0; j--)
       {
-        *Y1_Ptr++ = *(Y1_Ptr - 1);
-        *Y1Ptr++ = *(Y1Ptr - 1);
+        *Y1_Ptr = *(Y1_Ptr - 1);Y1_Ptr++;
+        *Y1Ptr = *(Y1Ptr - 1);Y1Ptr++;
       }
       for (j = 8; j > 0; j--)
       {
@@ -952,15 +961,15 @@ static void read_YCbCr420p(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,
     } else {
       for (j = 8 - Y2_cols; j > 0; j--)
       {
-        *Y2_Ptr++ = *(Y2_Ptr - 1);
-        *Y2Ptr++ = *(Y2Ptr - 1);
+        *Y2_Ptr = *(Y2_Ptr - 1);Y2_Ptr++;
+        *Y2Ptr = *(Y2Ptr - 1);Y2Ptr++;
       }
     }
 
     for (j = (16 - cols) >> 1; j > 0; j--)
     {
-      *CB_Ptr++ = *(CB_Ptr - 1);
-      *CR_Ptr++ = *(CR_Ptr - 1);
+      *CB_Ptr = *(CB_Ptr - 1);CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 1);CR_Ptr++;
     }
     Y1_Ptr += 8;
 
@@ -992,13 +1001,12 @@ static void read_YCbCr420p(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,
     }
 
     if (cols <= 8)
-
     {
       for (j = 8 - Y1_cols; j > 0; j--)
 
       {
-        *Y3_Ptr++ = *(Y3_Ptr - 1);
-        *Y3Ptr++ = *(Y3Ptr - 1);
+        *Y3_Ptr = *(Y3_Ptr - 1);Y3_Ptr++;
+        *Y3Ptr = *(Y3Ptr - 1);Y3Ptr++;
       }
 
       for (j = 8; j > 0; j--)
@@ -1008,23 +1016,21 @@ static void read_YCbCr420p(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,
         *Y4Ptr++ = *(Y3Ptr - 1);
       }
     }
-
     else
-
     {
       for (j = 8 - Y2_cols; j > 0; j--)
 
       {
-        *Y4_Ptr++ = *(Y4_Ptr - 1);
-        *Y4Ptr++ = *(Y4Ptr - 1);
+        *Y4_Ptr = *(Y4_Ptr - 1);Y4_Ptr++;
+        *Y4Ptr = *(Y4Ptr - 1);Y4Ptr++;
       }
     }
 
     for (j = (16 - cols) >> 1; j > 0; j--)
 
     {
-      *CB_Ptr++ = *(CB_Ptr - 1);
-      *CR_Ptr++ = *(CR_Ptr - 1);
+      *CB_Ptr = *(CB_Ptr - 1);CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 1);CR_Ptr++;
     }
 
     Y3_Ptr += 8;
@@ -1041,8 +1047,8 @@ static void read_YCbCr420p(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,
     {
       for (j = 8; j > 0; j--)
       {
-        *Y1_Ptr++ = *(Y1_Ptr - 8);
-        *Y2_Ptr++ = *(Y2_Ptr - 8);
+        *Y1_Ptr = *(Y1_Ptr - 8);Y1_Ptr++;
+        *Y2_Ptr = *(Y2_Ptr - 8);Y2_Ptr++;
       }
     }
     
@@ -1052,7 +1058,6 @@ static void read_YCbCr420p(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,
       Y2_Ptr -= 8;
 
       for (j = 8; j > 0; j--)
-
       {
         *Y3_Ptr++ = *Y1_Ptr++;
         *Y4_Ptr++ = *Y2_Ptr++;
@@ -1065,8 +1070,8 @@ static void read_YCbCr420p(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,
       for (j = 8; j > 0; j--)
 
       {
-        *Y3_Ptr++ = *(Y3_Ptr - 8);
-        *Y4_Ptr++ = *(Y4_Ptr - 8);
+        *Y3_Ptr = *(Y3_Ptr - 8);Y3_Ptr++;
+        *Y4_Ptr = *(Y4_Ptr - 8);Y4_Ptr++;
       }
     }
   }
@@ -1076,8 +1081,8 @@ static void read_YCbCr420p(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,
     for (j = 8; j > 0; j--)
 
     {
-      *CB_Ptr++ = *(CB_Ptr - 8);
-      *CR_Ptr++ = *(CR_Ptr - 8);
+      *CB_Ptr = *(CB_Ptr - 8);CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 8);CR_Ptr++;
     }
   }
 }
@@ -1131,22 +1136,23 @@ static void read_YCbCr422(S_JPEG_ENCODER_STRUCTURE * enc,uint8_t * input_ptr_,S_
     if (cols <= 8) // fill edge
     {
       for (j = 8 - Y1_cols; j > 0; j--) 
-        *Y1_Ptr++ = *(Y1_Ptr - 1);
+        {*Y1_Ptr = *(Y1_Ptr - 1);Y1_Ptr++;}
 
       for (j = 8 - Y2_cols; j > 0; j--)
-        *Y2_Ptr++ = *(Y1_Ptr - 1);
+        {*Y2_Ptr = *(Y1_Ptr - 1);Y2_Ptr++;}
       
     } else {
       for (j = 8 - Y2_cols; j > 0; j--)
-        *Y2_Ptr++ = *(Y2_Ptr - 1);
+        {*Y2_Ptr = *(Y2_Ptr - 1);Y2_Ptr++;}
     }
 
     for (j = (16 - cols) >> 1; j > 0; j--) //fill edge
     {
-      *CB_Ptr++ = *(CB_Ptr - 1); 
-      *CR_Ptr++ = *(CR_Ptr - 1); 
+      *CB_Ptr = *(CB_Ptr - 1); 
+			CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 1); 
+			CR_Ptr++;
     }
-
     input_ptr += scan_line_incr;
   }
 
@@ -1154,10 +1160,14 @@ static void read_YCbCr422(S_JPEG_ENCODER_STRUCTURE * enc,uint8_t * input_ptr_,S_
   {
     for (j = 8; j > 0; j--)
     {
-      *Y1_Ptr++ = *(Y1_Ptr - 8);
-      *Y2_Ptr++ = *(Y2_Ptr - 8);
-      *CB_Ptr++ = *(CB_Ptr - 8);
-      *CR_Ptr++ = *(CR_Ptr - 8);
+      *Y1_Ptr = *(Y1_Ptr - 8);
+			Y1_Ptr++;
+      *Y2_Ptr = *(Y2_Ptr - 8);
+			Y2_Ptr++;
+      *CB_Ptr = *(CB_Ptr - 8);
+			CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 8);
+			CR_Ptr++;
     }
   }
 }
@@ -1218,20 +1228,20 @@ static void read_YCbCr422p(S_JPEG_ENCODER_STRUCTURE * enc,uint8_t * input_ptr_,S
     if (cols <= 8) // fill edge
     {
       for (j = 8 - Y1_cols; j > 0; j--) 
-        *Y1_Ptr++ = *(Y1_Ptr - 1);
+        {*Y1_Ptr = *(Y1_Ptr - 1);Y1_Ptr++;}
 
       for (j = 8 - Y2_cols; j > 0; j--)
-        *Y2_Ptr++ = *(Y1_Ptr - 1);
+        {*Y2_Ptr++ = *(Y1_Ptr - 1);}
       
     } else {
       for (j = 8 - Y2_cols; j > 0; j--)
-        *Y2_Ptr++ = *(Y2_Ptr - 1);
+        {*Y2_Ptr = *(Y2_Ptr - 1);Y2_Ptr++;}
     }
 
     for (j = (16 - cols) >> 1; j > 0; j--) //fill edge
     {
-      *CB_Ptr++ = *(CB_Ptr - 1); 
-      *CR_Ptr++ = *(CR_Ptr - 1); 
+      *CB_Ptr = *(CB_Ptr - 1); CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 1); CR_Ptr++;
     }
 
     input_ptr += scan_line_incr;
@@ -1243,10 +1253,11 @@ static void read_YCbCr422p(S_JPEG_ENCODER_STRUCTURE * enc,uint8_t * input_ptr_,S
   {
     for (j = 8; j > 0; j--)
     {
-      *Y1_Ptr++ = *(Y1_Ptr - 8);
-      *Y2_Ptr++ = *(Y2_Ptr - 8);
-      *CB_Ptr++ = *(CB_Ptr - 8);
-      *CR_Ptr++ = *(CR_Ptr - 8);
+     
+      *Y1_Ptr = *(Y1_Ptr - 8);Y1_Ptr++;
+      *Y2_Ptr = *(Y2_Ptr - 8);Y2_Ptr++;
+      *CB_Ptr = *(CB_Ptr - 8);CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 8);CR_Ptr++;
     }
   }
 }
@@ -1273,9 +1284,9 @@ static void read_YCbCr444(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
 
     for (j = 8 - cols; j > 0; j--)
     {
-      *Y1_Ptr++ = *(Y1_Ptr - 1);
-      *CB_Ptr++ = *(CB_Ptr - 1);
-      *CR_Ptr++ = *(CR_Ptr - 1);
+      *Y1_Ptr = *(Y1_Ptr - 1);Y1_Ptr++;
+      *CB_Ptr = *(CB_Ptr - 1);CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 1);CR_Ptr++;      
     }
 
     input_ptr += scan_line_incr;
@@ -1285,9 +1296,9 @@ static void read_YCbCr444(S_JPEG_ENCODER_STRUCTURE * enc, uint8_t * input_ptr_,S
   {
     for (j = 8; j > 0; j--)
     {
-      *Y1_Ptr++ = *(Y1_Ptr - 8);
-      *CB_Ptr++ = *(CB_Ptr - 8);
-      *CR_Ptr++ = *(CR_Ptr - 8);
+      *Y1_Ptr = *(Y1_Ptr - 8);Y1_Ptr++;
+      *CB_Ptr = *(CB_Ptr - 8);CB_Ptr++;
+      *CR_Ptr = *(CR_Ptr - 8);CR_Ptr++;
     }
   }
 }
